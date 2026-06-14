@@ -177,6 +177,28 @@ For staging, demos, or small teams, you can host the entire system on a single *
    # Activate group changes in the current session (or log out and log back in)
    newgrp docker
    ```
+
+   **D. Enable Swap Space (Required for 1GB/2GB RAM instances):**
+   If you are using a low-memory EC2 instance (e.g., `t2.micro` or `t3.micro`), the Docker build process might crash during package installations due to out-of-memory issues (`exit code 137`). Set up a 2GB swap file to prevent this:
+   ```bash
+   # Allocate a 2GB swap file
+   sudo fallocate -l 2G /swapfile
+   
+   # Secure permissions
+   sudo chmod 600 /swapfile
+   
+   # Set up the swap area
+   sudo mkswap /swapfile
+   
+   # Enable swap
+   sudo swapon /swapfile
+   
+   # Make the swap permanent (so it persists across reboots)
+   echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+   
+   # Verify swap is active
+   sudo swapon --show
+   ```
 4. Clone the repository and configure the environment files:
    - Create a production `.env` inside `apps/crm/.env` and `apps/channel-service/.env` containing your database strings and API keys.
 5. Launch the containers in detached mode:
@@ -279,3 +301,35 @@ Keep the network secure by limiting traffic to only what is required:
 | ECS Container Group | `channel-service` Container | 4000 | TCP | Internal routing |
 | ECS Container Group | RDS PostgreSQL Instance | 5432 | TCP | Database access |
 | ECS Container Group | ElastiCache Redis Instance | 6379 | TCP | Queue broker & cache |
+
+---
+
+## 6. Troubleshooting EC2 Deployment Issues
+
+### A. Error: `exit code 137` (Out of Memory)
+- **Symptom**: During `pnpm install`, the builder crashes with `exit code: 137` (SIGKILL).
+- **Cause**: Node.js/pnpm exhausted the EC2 instance's RAM (e.g. on `t2.micro` or `t3.micro` which only have 1GB RAM).
+- **Solution**: Follow the instructions in Section 3, Step 3.D to allocate a 2GB swap file.
+
+### B. Error: `no space left on device` (Disk Full)
+- **Symptom**: The build fails while extracting layers with a write error indicating no space is left.
+- **Cause**: The default EC2 EBS root volume (8GB) is full due to OS files, the 2GB swap file, and Docker image caches.
+- **Solution 1 (Clean Cache)**: Run Docker system prune to free up cache space:
+  ```bash
+  docker system prune -af --volumes
+  ```
+- **Solution 2 (Increase EBS Volume)**:
+  1. Open the **AWS EC2 Console** -> **Volumes**.
+  2. Select your root volume -> **Actions** -> **Modify volume**.
+  3. Increase the size (e.g., to `20 GB` or `30 GB` which are free-tier eligible) and click **Modify**.
+  4. On your EC2 terminal, resize the filesystem:
+     ```bash
+     # Check the disk name (usually /dev/xvda or /dev/nvme0n1)
+     lsblk
+     
+     # Grow the partition (replace xvda 1 with your disk and partition number)
+     sudo growpart /dev/xvda 1
+     
+     # Resize the filesystem (replace /dev/xvda1 with your partition name)
+     sudo resize2fs /dev/xvda1
+     ```

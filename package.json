@@ -8,11 +8,11 @@
     "test": "turbo run test",
     "type-check": "turbo run type-check",
     "worker": "turbo run worker",
-    "db:migrate": "pnpm --filter crm prisma migrate dev",
+    "db:migrate": "pnpm --filter crm exec prisma migrate dev",
     "db:migrate-vectors": "pnpm --filter crm exec psql $DATABASE_URL -f prisma/migrations/add-vector-columns.sql",
-    "db:seed": "pnpm --filter crm prisma db seed",
-    "db:studio": "pnpm --filter crm prisma studio",
-    "db:reset": "pnpm --filter crm prisma migrate reset --force && pnpm db:seed",
+    "db:seed": "pnpm --filter crm exec prisma db seed",
+    "db:studio": "pnpm --filter crm exec prisma studio",
+    "db:reset": "pnpm --filter crm exec prisma migrate reset --force && pnpm db:seed",
     "postinstall": "node -e \"const fs = require('fs'); if (fs.existsSync('apps/crm/prisma/schema.prisma')) require('child_process').execSync('pnpm --filter crm exec prisma generate', { stdio: 'inherit' })\""
   },
   "devDependencies": {
