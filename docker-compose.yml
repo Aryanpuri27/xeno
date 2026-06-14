@@ -1,0 +1,51 @@
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: xeno-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: xeno
+      POSTGRES_PASSWORD: xeno_secret
+      POSTGRES_DB: xeno_crm
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xeno -d xeno_crm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: xeno-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
+
+# ── Hosting notes ────────────────────────────────────────────────────────────
+# Production:
+#   - CRM app:          Deploy to Vercel (Next.js)
+#   - Channel service:  Deploy to Railway as a Docker service
+#   - Worker process:   Deploy to Railway (separate process, same repo)
+#   - PostgreSQL:       Supabase (managed Postgres with pgvector extension)
+#     OR Railway PostgreSQL addon
+#   - Redis:            Upstash (serverless Redis) OR Railway Redis addon
+#
+# For Supabase pgvector:
+#   Enable the vector extension: CREATE EXTENSION IF NOT EXISTS vector;
+# ─────────────────────────────────────────────────────────────────────────────

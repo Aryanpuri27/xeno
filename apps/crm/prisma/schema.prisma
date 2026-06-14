@@ -1,0 +1,224 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [pgvector(map: "vector")]
+}
+
+
+// ── Customer & Orders ─────────────────────────────────────────────────────────
+
+model Customer {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  city      String?
+  gender    String?
+  age       Int?
+  tier      String   @default("standard") // standard | silver | gold | elite
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders         Order[]
+  communications Communication[]
+
+  @@index([city])
+  @@index([tier])
+  @@index([createdAt])
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  category    String
+  price       Float
+  description String   @db.Text
+  sku         String   @unique
+  inStock     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orders Order[]
+
+  @@index([category])
+}
+
+model Order {
+  id          String   @id @default(cuid())
+  customerId  String
+  productId   String
+  amount      Float
+  quantity    Int      @default(1)
+  orderedAt   DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id])
+  product  Product  @relation(fields: [productId], references: [id])
+
+  @@index([customerId])
+  @@index([productId])
+  @@index([orderedAt])
+}
+
+// ── Campaign & Communications ─────────────────────────────────────────────────
+
+model Campaign {
+  id              String         @id @default(cuid())
+  name            String
+  goal            String         @db.Text
+  status          CampaignStatus @default(DRAFT)
+  channel         String         // whatsapp | email | sms | rcs
+  messageTemplate String         @db.Text
+  subject         String?        // email only
+  segmentSQL      String         @db.Text
+  audienceCount   Int
+  scheduledAt     DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  communications   Communication[]
+  orchestratorRun  OrchestratorRun?
+  memory           CampaignMemory?
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Communication {
+  id          String   @id @default(cuid())
+  campaignId  String
+  customerId  String
+  channel     String
+  status      String   @default("SENT") // SENT | DELIVERED | FAILED | BOUNCED
+  sentAt      DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+  events   CommunicationEvent[]
+
+  @@index([campaignId])
+  @@index([customerId])
+  @@index([status])
+}
+
+model CommunicationEvent {
+  id              String   @id @default(cuid())
+  communicationId String
+  eventType       String   // SENT | DELIVERED | FAILED | BOUNCED | OPENED | READ | CLICKED | CONVERTED
+  timestamp       DateTime
+  createdAt       DateTime @default(now())
+
+  communication Communication @relation(fields: [communicationId], references: [id])
+
+  @@index([communicationId])
+  @@index([eventType])
+  @@index([timestamp])
+}
+
+// ── Orchestrator (HITL) ───────────────────────────────────────────────────────
+
+model OrchestratorRun {
+  id   String @id @default(cuid())
+  goal String @db.Text
+
+  // State machine status
+  status            OrchestratorRunStatus @default(RUNNING)
+  currentCheckpoint CheckpointType?
+
+  // ── Results from each agent stage (populated as agents complete) ───────────
+  segmentResult Json? // SegmentAgentOutput
+  productResult Json? // ProductAgentOutput
+  contentResult Json? // ContentAgentOutput
+  channelResult Json? // ChannelAgentOutput
+
+  // ── Marketer edits at each checkpoint ─────────────────────────────────────
+  segmentEdits    Json?   // { editedDescription, editedSQL }
+  productEdits    Json?   // ProductAgentOutput (after marketer edits)
+  contentEdits    Json?   // ContentAgentOutput (after marketer edits)
+  channelOverride String? // marketer-chosen channel override
+
+  // ── Final execution plan ───────────────────────────────────────────────────
+  executionPlan Json? // ExecutionPlan
+
+  // ── Thinking steps for SSE streaming ──────────────────────────────────────
+  steps Json @default("[]") // OrchestratorStep[]
+
+  // ── Error state ───────────────────────────────────────────────────────────
+  error String?
+
+  // ── Linked campaign (set after final launch) ───────────────────────────────
+  campaignId String?   @unique
+  campaign   Campaign? @relation(fields: [campaignId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum OrchestratorRunStatus {
+  RUNNING
+  AWAITING_SEGMENT_APPROVAL
+  AWAITING_PRODUCT_APPROVAL
+  AWAITING_CONTENT_APPROVAL
+  AWAITING_LAUNCH_APPROVAL
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum CheckpointType {
+  SEGMENT
+  PRODUCT
+  CONTENT
+  LAUNCH
+}
+
+enum CampaignStatus {
+  DRAFT
+  REVIEW
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+// ── Memory Layer ──────────────────────────────────────────────────────────────
+
+// NOTE: The 'embedding' column is added via raw SQL migration (Prisma doesn't support vector natively)
+// Run: ALTER TABLE "CampaignMemory" ADD COLUMN embedding vector(1536);
+// Then: CREATE INDEX ON "CampaignMemory" USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
+model CampaignMemory {
+  id           String   @id @default(cuid())
+  campaignId   String   @unique
+  summary      String   @db.Text
+  ctr          Float
+  openRate     Float
+  deliveryRate Float
+  bestChannel  String
+  audienceSize Int
+  topProduct   String
+  // embedding    Unsupported("vector(1536)") -- added via raw migration
+  createdAt    DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+
+  @@index([campaignId])
+}
+
+model Settings {
+  id        String   @id @default(cuid())
+  key       String   @unique // e.g. "brand_memory"
+  value     Json
+  updatedAt DateTime @updatedAt
+}
