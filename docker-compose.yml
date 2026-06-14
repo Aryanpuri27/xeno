@@ -1,4 +1,3 @@
-
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -12,9 +11,11 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - xeno-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U xeno -d xeno_crm"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
       retries: 5
 
@@ -27,25 +28,89 @@ services:
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes
+    networks:
+      - xeno-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
       retries: 5
+
+  channel-service:
+    build:
+      context: .
+      dockerfile: apps/channel-service/Dockerfile
+    container_name: xeno-channel-service
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: 4000
+      NODE_ENV: production
+    networks:
+      - xeno-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:4000/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  crm-app:
+    build:
+      context: .
+      dockerfile: apps/crm/Dockerfile
+    container_name: xeno-crm-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    command: sh -c "pnpm --filter crm exec prisma migrate deploy && pnpm --filter crm start"
+    environment:
+      DATABASE_URL: "postgresql://xeno:xeno_secret@postgres:5432/xeno_crm?pgbouncer=true&connection_limit=1"
+      DIRECT_URL: "postgresql://xeno:xeno_secret@postgres:5432/xeno_crm"
+      REDIS_URL: "redis://redis:6379"
+      OPENAI_API_KEY: "${OPENAI_API_KEY}"
+      CHANNEL_SERVICE_URL: "http://channel-service:4000"
+      WEBHOOK_BASE_URL: "http://crm-app:3000"
+      WEBHOOK_SECRET: "xeno-crm-local-dev-webhook-secret-2026"
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - xeno-network
+
+  crm-worker:
+    build:
+      context: .
+      dockerfile: apps/crm/Dockerfile
+    container_name: xeno-crm-worker
+    restart: unless-stopped
+    command: ["pnpm", "--filter", "crm", "worker"]
+    environment:
+      DATABASE_URL: "postgresql://xeno:xeno_secret@postgres:5432/xeno_crm?pgbouncer=true&connection_limit=1"
+      DIRECT_URL: "postgresql://xeno:xeno_secret@postgres:5432/xeno_crm"
+      REDIS_URL: "redis://redis:6379"
+      OPENAI_API_KEY: "${OPENAI_API_KEY}"
+      CHANNEL_SERVICE_URL: "http://channel-service:4000"
+      WEBHOOK_BASE_URL: "http://crm-app:3000"
+      WEBHOOK_SECRET: "xeno-crm-local-dev-webhook-secret-2026"
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      channel-service:
+        condition: service_healthy
+    networks:
+      - xeno-network
 
 volumes:
   postgres_data:
   redis_data:
 
-# ── Hosting notes ────────────────────────────────────────────────────────────
-# Production:
-#   - CRM app:          Deploy to Vercel (Next.js)
-#   - Channel service:  Deploy to Railway as a Docker service
-#   - Worker process:   Deploy to Railway (separate process, same repo)
-#   - PostgreSQL:       Supabase (managed Postgres with pgvector extension)
-#     OR Railway PostgreSQL addon
-#   - Redis:            Upstash (serverless Redis) OR Railway Redis addon
-#
-# For Supabase pgvector:
-#   Enable the vector extension: CREATE EXTENSION IF NOT EXISTS vector;
-# ─────────────────────────────────────────────────────────────────────────────
+networks:
+  xeno-network:
+    driver: bridge

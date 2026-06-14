@@ -3,6 +3,8 @@ import Link from "next/link";
 import { getCampaignsWithStats } from "@/lib/db/queries/campaigns";
 import { Plus, Megaphone, Clock, CheckCircle, XCircle, Loader } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Campaigns",
   description: "View and manage your Nike CRM campaigns",

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { db } from "@/lib/db/client";
 import { Package, CheckCircle2, XCircle } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Products",
   description: "Nike product catalog",

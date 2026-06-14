@@ -4,6 +4,8 @@ import { db } from "@/lib/db/client";
 import { getAnalyticsSnapshot } from "@/lib/db/queries/analytics";
 import { TrendingUp, BarChart3 } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Analytics",
   description: "Nike CRM campaign performance analytics",

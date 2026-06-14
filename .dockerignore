@@ -1,0 +1,24 @@
+# Ignore dependencies
+node_modules/
+**/node_modules/
+
+# Ignore build artifacts
+.next/
+**/.next/
+.turbo/
+**/.turbo/
+dist/
+**/dist/
+build/
+out/
+.env*
+**/.env*
+
+# Ignore system files
+.git/
+.github/
+.vscode/
+.idea/
+*.log
+.DS_Store
+Thumbs.db

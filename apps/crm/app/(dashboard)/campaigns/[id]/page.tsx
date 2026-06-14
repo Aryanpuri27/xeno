@@ -6,6 +6,8 @@ import { db } from "@/lib/db/client";
 import { getAnalyticsSnapshot } from "@/lib/db/queries/analytics";
 import { LiveAnalytics } from "@/components/analytics/live-analytics";
 
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata(
   { params }: { params: Promise<{ id: string }> }
 ): Promise<Metadata> {

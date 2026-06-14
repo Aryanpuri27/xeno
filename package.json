@@ -12,7 +12,8 @@
     "db:migrate-vectors": "pnpm --filter crm exec psql $DATABASE_URL -f prisma/migrations/add-vector-columns.sql",
     "db:seed": "pnpm --filter crm prisma db seed",
     "db:studio": "pnpm --filter crm prisma studio",
-    "db:reset": "pnpm --filter crm prisma migrate reset --force && pnpm db:seed"
+    "db:reset": "pnpm --filter crm prisma migrate reset --force && pnpm db:seed",
+    "postinstall": "node -e \"const fs = require('fs'); if (fs.existsSync('apps/crm/prisma/schema.prisma')) require('child_process').execSync('pnpm --filter crm exec prisma generate', { stdio: 'inherit' })\""
   },
   "devDependencies": {
     "turbo": "^2.3.3",

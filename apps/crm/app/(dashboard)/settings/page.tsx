@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { getBrandMemory } from "@/lib/memory/brand";
 import { BrandMemoryEditor } from "@/components/settings/brand-memory-editor";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Settings",
   description: "Nike CRM brand memory settings",
