@@ -87,7 +87,8 @@ services:
       dockerfile: apps/crm/Dockerfile
     container_name: xeno-crm-worker
     restart: unless-stopped
-    command: ["pnpm", "--filter", "crm", "worker"]
+    working_dir: /app/apps/crm
+    command: ["npx", "tsx", "lib/queue/worker.ts"]
     environment:
       DATABASE_URL: "postgresql://xeno:xeno_secret@postgres:5432/xeno_crm?pgbouncer=true&connection_limit=1"
       DIRECT_URL: "postgresql://xeno:xeno_secret@postgres:5432/xeno_crm"
