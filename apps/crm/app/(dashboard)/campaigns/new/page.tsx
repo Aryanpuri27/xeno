@@ -61,6 +61,18 @@ export default function NewCampaignPage() {
     };
   }, []);
 
+  // Prefill campaign goal from URL search params
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      const queryGoal = searchParams.get("goal");
+      if (queryGoal) {
+        setGoal(queryGoal);
+      }
+    }
+  }, []);
+
+
   // Start the campaign orchestration
   async function handleStart() {
     if (!goal.trim()) return;
