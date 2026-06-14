@@ -11,7 +11,7 @@ export const redisConnection = new Redis(config.REDIS_URL, {
 });
 
 export const campaignQueue = new Queue<CampaignSendJob>("campaign-send", {
-  connection: redisConnection,
+  connection: redisConnection as any,
   defaultJobOptions: {
     attempts: 3,
     backoff: { type: "exponential", delay: 2000 },
@@ -25,5 +25,5 @@ export const campaignQueueEvents = new QueueEvents("campaign-send", {
   connection: new Redis(config.REDIS_URL, {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
-  }),
+  }) as any,
 });

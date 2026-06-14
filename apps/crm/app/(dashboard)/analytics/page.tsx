@@ -17,7 +17,7 @@ export default async function AnalyticsPage() {
   });
 
   const analyticsData = await Promise.all(
-    campaigns.map(async (c) => ({
+    campaigns.map(async (c: any) => ({
       campaign: c,
       stats: await getAnalyticsSnapshot(c.id),
     }))

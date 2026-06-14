@@ -165,7 +165,7 @@ const worker = new Worker<CampaignSendJob>(
     connection: new Redis(config.REDIS_URL, {
       maxRetriesPerRequest: null,
       enableReadyCheck: false,
-    }),
+    }) as any,
     concurrency: 20,
     limiter: { max: 100, duration: 1000 },
   }
