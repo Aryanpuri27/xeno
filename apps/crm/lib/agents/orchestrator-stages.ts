@@ -23,7 +23,7 @@ import { runChannelAgent } from "./channel-agent";
 import { getCampaignMemory } from "@/lib/memory/campaign";
 import { getBrandMemory } from "@/lib/memory/brand";
 import { emitStep } from "./orchestrator-events";
-import { campaignQueue } from "@/lib/queue/client";
+import { getCampaignQueue } from "@/lib/queue/client";
 import { logger } from "@/lib/utils/logger";
 import { createId } from "@paralleldrive/cuid2";
 import type {
@@ -287,7 +287,8 @@ export async function launchCampaign(runId: string, scheduledAt?: Date): Promise
     },
   }));
 
-  await campaignQueue.addBulk(jobs as Parameters<typeof campaignQueue.addBulk>[0]);
+  const queue = getCampaignQueue();
+  await queue.addBulk(jobs as Parameters<typeof queue.addBulk>[0]);
 
   logger.info({ runId, campaignId: campaign.id, audienceSize: customers.length, channel }, "Campaign launched");
 }

@@ -3,27 +3,43 @@ import { Redis } from "ioredis";
 import { config } from "@/lib/utils/config";
 import type { CampaignSendJob } from "@xeno/shared-types";
 
-// Shared Redis connection — reused across queue and worker
-// maxRetriesPerRequest: null is required by BullMQ
-export const redisConnection = new Redis(config.REDIS_URL, {
-  maxRetriesPerRequest: null,
-  enableReadyCheck: false,
-});
+// Shared Redis connection helper to prevent build-time instantiation
+let _redisConnection: Redis | null = null;
+function getRedisConnection(): Redis {
+  if (!_redisConnection) {
+    _redisConnection = new Redis(config.REDIS_URL, {
+      maxRetriesPerRequest: null,
+      enableReadyCheck: false,
+    });
+  }
+  return _redisConnection;
+}
 
-export const campaignQueue = new Queue<CampaignSendJob>("campaign-send", {
-  connection: redisConnection as any,
-  defaultJobOptions: {
-    attempts: 3,
-    backoff: { type: "exponential", delay: 2000 },
-    removeOnComplete: { count: 1000 }, // keep last 1000 completed jobs
-    removeOnFail: { count: 500 },
-  },
-});
+let _campaignQueue: Queue<CampaignSendJob> | null = null;
+export function getCampaignQueue(): Queue<CampaignSendJob> {
+  if (!_campaignQueue) {
+    _campaignQueue = new Queue<CampaignSendJob>("campaign-send", {
+      connection: getRedisConnection() as any,
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: { type: "exponential", delay: 2000 },
+        removeOnComplete: { count: 1000 }, // keep last 1000 completed jobs
+        removeOnFail: { count: 500 },
+      },
+    });
+  }
+  return _campaignQueue;
+}
 
-// Queue events for monitoring — used by the completion handler
-export const campaignQueueEvents = new QueueEvents("campaign-send", {
-  connection: new Redis(config.REDIS_URL, {
-    maxRetriesPerRequest: null,
-    enableReadyCheck: false,
-  }) as any,
-});
+let _campaignQueueEvents: QueueEvents | null = null;
+export function getCampaignQueueEvents(): QueueEvents {
+  if (!_campaignQueueEvents) {
+    _campaignQueueEvents = new QueueEvents("campaign-send", {
+      connection: new Redis(config.REDIS_URL, {
+        maxRetriesPerRequest: null,
+        enableReadyCheck: false,
+      }) as any,
+    });
+  }
+  return _campaignQueueEvents;
+}
