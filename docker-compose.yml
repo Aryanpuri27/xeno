@@ -47,6 +47,7 @@ services:
     environment:
       PORT: 4000
       NODE_ENV: production
+      WEBHOOK_SECRET: "xeno-crm-local-dev-webhook-secret-2026"
     networks:
       - xeno-network
     healthcheck:
